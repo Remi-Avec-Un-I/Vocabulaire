@@ -1,10 +1,10 @@
+import PySimpleGUI as sg
+import json, os, random, webbrowser, googletrans, requests
 from randomdict import RandomDict #https://github.com/robtandy/randomdict
 from googletrans import Translator
-import PySimpleGUI as sg
-import json, os, random, webbrowser, googletrans
-
 from os import system, walk
 from PySimpleGUI.PySimpleGUI import P
+
 
 try:        #trying to load theme string
     with open(r"./parametres/theme.json", 'r') as file:
@@ -33,7 +33,8 @@ def actualiser(window):
         system("py " + os.path.basename(__file__))
     except:
         system(os.path.basename(__file__))
-   
+#
+
 def create_json(name):
     open(f"./parametres/{name}.json", "a+").close() # pour creer le json s'il existe pas
 #
@@ -50,13 +51,24 @@ def GridButton(text:str):
 
 def translate(text, src="auto", dest="fr"):
     return translator.translate(text, src=src, dest=dest).text
+#    
+    
+def download(fileToDownload):
+    url = f'https://raw.githubusercontent.com/Remi-Avec-Un-I/Voc-Prefait/main/{fileToDownload}'
+    page = requests.get(url)
+    with open(f"./langue/{fileToDownload}", "w") as file:
+        file.write(page.text)
 #
 
-    
+def repo():
+    res = requests.get("https://api.github.com/repos/Remi-Avec-Un-I/Voc-Prefait/git/trees/main")
+    liste_path = res.json()["tree"]
+    liste_path = [each['path'] for each in liste_path]
+    return liste_path
+#
+
 def main(path: str, theme: str, icon: str):
     
-    
-    #########################
     langue = []
         
     for root, directories, file in walk(path):
@@ -73,6 +85,7 @@ def main(path: str, theme: str, icon: str):
     layout = layoutLangue + [
         [sg.Text("Ajouter une langue (pas de guillet ou la langue ne marchera plus) :", justification='center',size=(100,1))], [sg.Input()],
         [sg.Button("Ajouter"), sg.Button("Actualiser"), sg.Button("Fermer")],
+        [sg.Button("Ajouter une langue pré-faite")],
         [sg.Button("Google traduction")],
         [sg.Button("Supprimer une langue")],
         [sg.Button("Parametres")]
@@ -90,7 +103,6 @@ def main(path: str, theme: str, icon: str):
             wndLangue(event, theme, icon)
             
         if event == "Fermer" or event == sg.WIN_CLOSED:
-            system("taskkill /im python.exe")
             break
         
         elif event == "Actualiser":
@@ -103,10 +115,12 @@ def main(path: str, theme: str, icon: str):
                 pass
             file = path + "/" + values[0] + ".json"
             open(file, "a+").close()
-            print("Création de", file)
         
+        elif event == "Ajouter une langue pré-faite":
+            downloadLanguage(theme, icon)
+            
         elif event == "Supprimer une langue":
-            supprLangue(theme, icon)
+            supprLangue(theme, icon, langue)
         
         elif event == "Parametres":
             settings(theme, icon)
@@ -115,9 +129,9 @@ def main(path: str, theme: str, icon: str):
             googleTrad(theme, icon)
             
     window.close()
+#
 
 def exemple(theme: str, icon: str):
-    print("yes")
     sg.theme(f"{theme}")
     layout=[
         [sg.Text(f"Voici un exemple du theme : {theme}")],
@@ -129,10 +143,10 @@ def exemple(theme: str, icon: str):
         if event == sg.WIN_CLOSED or event == "Quitter":
             break
     window.close()
-    
+#
+  
 def settings(theme: str, icon: str):
-
-    print(theme)                      
+                
     sg.theme(f"{theme}")
     
     ico = []
@@ -158,10 +172,8 @@ def settings(theme: str, icon: str):
         
         elif event == 'Essayer':
             if len(values["-Combo-"]):
-                print('no')
                 break
             else:
-                print("yes")
                 exemple(values["-List-"], icon)
         
         elif event == "Appliquer":
@@ -197,8 +209,7 @@ def settings(theme: str, icon: str):
             icon = {"icon" : values["-Combo-"] + ".ico"}
 #
 
-
-def supprLangue(theme: str, icon: str):
+def supprLangue(theme: str, icon: str, langue: str):
     
     sg.theme(f"{theme}")
     
@@ -265,8 +276,7 @@ def wndLangue(langue: list, theme: str, icon: str):
             reviser(langue, theme, old=(), icon=icon)
             
         elif event == "Suppprimer du vocabulaire":
-            supprVoc(langue, theme, icon)
-        
+            supprVoc(langue, theme, icon)       
 # 
 
 def reviser(langue, theme: str, old: tuple, icon: str):
@@ -308,7 +318,7 @@ def test(langue, theme: str, old: tuple, point: int, icon: str):
     while D[0] in old:
         D = data.random_item()
     old = ()
-    if random.randint(0, 2) == 0:
+    if random.randint(0, 1) == 0:
         cols = (("En français" ,40 , D[0] ), (f"En {langue}",40 , ""))
     else:
         cols = (("En français" ,40 , "" ), (f"En {langue}",40 , D[1]))
@@ -316,7 +326,10 @@ def test(langue, theme: str, old: tuple, point: int, icon: str):
     layout = [
         [*[text_over_input(*col) for col in cols],sg.Column([[sg.Text(pad=(0,0))],[sg.B('Valider', pad=(0,0)), sg.B("Quitter", pad=(3,0))]])],
         [sg.Button("J'avais juste !", visible=False), sg.Text("Juste", key="-Reponse-", text_color='green', visible=False)],
-        [sg.Text(f"Vous avez {point} point(s)", key='-point-', visible=False), sg.Button("Continuer", key='-continuer-', visible=False)]
+        [sg.Text(f"Vous avez {point} point(s)", key='-point-', visible=False), sg.Button("Continuer", key='-continuer-', visible=False)],
+        [sg.Button("Aide"), sg.Text("Il faut rentrer la traduction dans la case vide, puis Valider a l'aide du bouton,\n"
+                                    "si jamais vous considerez avoir quand meme eu juste alors vous pouvez cliquer sur le bouton"
+                                    "'' j'avais juste ''", key="-aide-", visible=False)]
     ]
     window = sg.Window("Test", layout, size=(720, 400), icon=icon)
     while True:
@@ -337,15 +350,22 @@ def test(langue, theme: str, old: tuple, point: int, icon: str):
                 window['-point-'].update(visible=True)
             while True:
                 event, values = window.read()
+                
                 if event == sg.WIN_CLOSED or event == "Quitter":
                     break
+                
                 elif event == "J'avais juste !":
                     point+=1
                     window["J'avais juste !"].update(visible=False)
                     window['-point-'].update(f"Vous avez {point} point(s)")
+                    
                 elif event == '-continuer-':
                     window.close()
                     test(langue, theme, old=old+D, point=point, icon=icon)
+                
+        elif event == "Aide":
+            window["-aide-"].update(visible=True)
+            
     window.close()
 #
     
@@ -382,7 +402,8 @@ def vocabulaire(langue: list, theme: str, icon: str):
         
         elif event == "Aide":
             window['-aide-'].update(visible=True)
-#        
+#
+       
 def supprVoc(langue: str, theme: str, icon: str):
     sg.theme(f"{theme}")
     with open(f"./langue/{langue}.json", "r") as file:
@@ -418,9 +439,8 @@ def supprVoc(langue: str, theme: str, icon: str):
                 with open(f"./langue/{langue}.json", "w") as file:
                     json.dump(vocToSep, file, indent=4)
                     window.close()
-            
-                
-    
+#          
+
 def googleTrad(theme: str, icon: str):
     sg.theme(f"{theme}")
     
@@ -429,7 +449,8 @@ def googleTrad(theme: str, icon: str):
     layout = [
         [sg.Combo(languages, key="-Clang-")],
         [*[text_over_input(*col) for col in cols],sg.Column([[sg.Text(pad=(0,0))]])],
-        [sg.Button("Traduire")]
+        [sg.Button("Traduire"), sg.Button("Aide")],
+        [sg.T("Il faut choisir une langue a l'aide du dérouler. Ensuite il faut écrire son texte/mots puis valider en cliquant sur le Bouton\n'' Traduire ''.", visible=False, key="-aide-")]
     ]
     
     window = sg.Window("Vocabulaire", layout, element_justification='c', size=(720, 400), icon=icon)
@@ -455,8 +476,30 @@ def googleTrad(theme: str, icon: str):
                     pass
             else:
                 pass
-
-        
+            
+        elif event == "Aide":
+            window["-aide-"].update(visible=True)
     window.close()
+#
+
+def downloadLanguage(theme: str, icon: str):
+    sg.theme(f"{theme}")
+    layout = [
+        [sg.Text("Cliquez sur une langue a installer")]
+    ]
+    for i in repo():
+        layout = [layout, [sg.Button(i[:-5], key=i)]]
         
+    layout = [layout + [sg.Button("Fermer", button_color="red")]]
+        
+    window = sg.Window("Vocabulaire", layout, element_justification='c', size=(720, 400), icon=icon)
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED:
+            break
+        
+        elif event in repo():
+            print(event)
+            download(event)
+
 main(path=r'./langue', theme=str(theme), icon=icon)
